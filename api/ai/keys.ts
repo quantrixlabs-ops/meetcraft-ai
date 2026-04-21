@@ -8,12 +8,20 @@ async function getKeys(userId: string) {
   });
 
   try {
+    console.log('[getKeys] Connecting to database...');
     await client.connect();
+    console.log('[getKeys] Connected. Querying with userId:', userId);
+
     const result = await client.query(
       'SELECT id, provider, label, key_mask as "keyMask", is_active as "isActive", created_at as "createdAt" FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
+
+    console.log('[getKeys] Query successful. Rows:', result.rows.length);
     return result.rows;
+  } catch (error: any) {
+    console.error('[getKeys] Error:', error.message);
+    throw error;
   } finally {
     await client.end();
   }
@@ -57,8 +65,12 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'application/json');
     const userId = req.headers['x-user-id'] || 'anon';
 
+    console.log(`[keys handler] ${req.method} request. userId: ${userId}`);
+
     if (req.method === 'GET') {
+      console.log('[keys handler] Calling getKeys...');
       const keys = await getKeys(userId);
+      console.log('[keys handler] Success. Returning', keys.length, 'keys');
       return res.status(200).json(keys);
     }
 
@@ -79,7 +91,7 @@ export default async function handler(req: any, res: any) {
 
     res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    console.error('Keys API error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[keys handler] ERROR:', error.message, error.stack);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 }
