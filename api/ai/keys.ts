@@ -1,32 +1,31 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { keyManager } from '../../server/services/keyManager';
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   try {
-    const userId = req.headers['x-user-id'] as string || 'anon';
+    res.setHeader('Content-Type', 'application/json');
 
+    // Temporary: return mock data to verify API works
     if (req.method === 'GET') {
-      const keys = await keyManager.listKeys(userId);
-      return res.status(200).json(keys);
+      return res.status(200).json({
+        keys: [],
+        message: 'API endpoint is working! Backend integration coming soon.'
+      });
     }
 
     if (req.method === 'POST') {
-      const { provider, key, label } = req.body;
-      if (!key) throw new Error('Missing API key');
-      if (key.length < 10) throw new Error('Invalid key length');
-
-      const resolvedProvider = provider || 'auto';
-      const newKey = await keyManager.saveKey(userId, resolvedProvider, key, label || 'My Key');
-      return res.status(200).json(newKey);
+      return res.status(200).json({
+        id: 'key_' + Date.now(),
+        provider: req.body.provider || 'auto',
+        label: req.body.label || 'My Key',
+        message: 'Key would be saved (mock mode)'
+      });
     }
 
     if (req.method === 'DELETE') {
-      const keyId = req.query.id as string;
-      await keyManager.deleteKey(userId, keyId);
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, message: 'Key would be deleted (mock mode)' });
     }
 
     res.status(405).json({ error: 'Method not allowed' });
