@@ -12,16 +12,23 @@ export default async function handler(
       return res.status(400).json({ error: "Validation Error: 'topic' field is required" });
     }
 
-    // Mock response - indicates API is working
+    // Mock response with proper structure
     res.status(200).json({
-      success: true,
       topic: input.topic,
-      message: 'Generate endpoint working (mock mode - backend integration needed)',
-      chapters: [],
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        status: 'mock_response'
-      }
+      audience: input.audience || 'General',
+      industry: input.industry || 'Technology',
+      depth: input.depth || 'Intermediate',
+      duration: input.duration || 30,
+      chapters: [
+        {
+          title: 'Introduction',
+          content: 'Mock content - real backend needed',
+          duration: 5
+        }
+      ],
+      summary: `Knowledge package for ${input.topic}`,
+      estimatedReadTime: input.duration || 30,
+      generatedAt: new Date().toISOString()
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
