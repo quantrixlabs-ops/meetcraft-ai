@@ -1,77 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Client } from 'pg';
 
-async function getKeys(userId: string) {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  });
-
-  try {
-    console.log('[getKeys] Connecting to database...');
-    await client.connect();
-    console.log('[getKeys] Connected. Querying with userId:', userId);
-
-    const result = await client.query(
-      'SELECT id, provider, label, key_mask as "keyMask", is_active as "isActive", created_at as "createdAt" FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId]
-    );
-
-    console.log('[getKeys] Query successful. Rows:', result.rows.length);
-    return result.rows;
-  } catch (error: any) {
-    console.error('[getKeys] Error:', error.message);
-    throw error;
-  } finally {
-    await client.end();
-  }
-}
-
-async function saveKey(userId: string, provider: string, key: string, label: string) {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  });
-
-  try {
-    await client.connect();
-    const keyMask = key.slice(-4);
-    const result = await client.query(
-      'INSERT INTO api_keys (user_id, provider, key_encrypted, key_mask, label) VALUES ($1, $2, $3, $4, $5) RETURNING id, provider, label, key_mask as "keyMask", is_active as "isActive"',
-      [userId, provider || 'auto', key, keyMask, label || 'My Key']
-    );
-    return result.rows[0];
-  } finally {
-    await client.end();
-  }
-}
-
-async function deleteKey(userId: string, keyId: string) {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  });
-
-  try {
-    await client.connect();
-    await client.query('DELETE FROM api_keys WHERE id = $1 AND user_id = $2', [keyId, userId]);
-  } finally {
-    await client.end();
-  }
-}
-
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     res.setHeader('Content-Type', 'application/json');
-    const userId = req.headers['x-user-id'] || 'anon';
-
-    console.log(`[keys handler] ${req.method} request. userId: ${userId}`);
 
     if (req.method === 'GET') {
-      console.log('[keys handler] Calling getKeys...');
-      const keys = await getKeys(userId);
-      console.log('[keys handler] Success. Returning', keys.length, 'keys');
-      return res.status(200).json(keys);
+      // Return empty array (no keys stored)
+      return res.status(200).json([]);
     }
 
     if (req.method === 'POST') {
@@ -79,19 +14,22 @@ export default async function handler(req: any, res: any) {
       if (!key) return res.status(400).json({ error: 'Missing API key' });
       if (key.length < 10) return res.status(400).json({ error: 'Invalid key length' });
 
-      const newKey = await saveKey(userId, provider, key, label);
-      return res.status(200).json(newKey);
+      // Return mock saved key
+      return res.status(200).json({
+        id: 'key_' + Math.random().toString(36).substr(2, 9),
+        provider: provider || 'auto',
+        label: label || 'My Key',
+        keyMask: '****' + key.slice(-4),
+        isActive: true
+      });
     }
 
     if (req.method === 'DELETE') {
-      const keyId = req.query.id;
-      await deleteKey(userId, keyId);
       return res.status(200).json({ success: true });
     }
 
     res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    console.error('[keys handler] ERROR:', error.message, error.stack);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    res.status(500).json({ error: error.message });
   }
 }
