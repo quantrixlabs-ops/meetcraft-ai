@@ -1,30 +1,20 @@
-import { Pool } from 'pg';
-
-let pool: Pool | null = null;
-
-export function getPool(): Pool {
-  if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable not set');
-    }
-
-    pool = new Pool({
-      connectionString,
-      ssl: { rejectUnauthorized: false }
-    });
-  }
-  return pool;
-}
+import { Client } from 'pg';
 
 export async function query(text: string, params?: any[]) {
-  const pool = getPool();
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
   try {
-    const result = await pool.query(text, params);
+    await client.connect();
+    const result = await client.query(text, params);
     return result.rows;
   } catch (error) {
     console.error('Database query error:', error);
     throw error;
+  } finally {
+    await client.end();
   }
 }
 
