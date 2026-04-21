@@ -10,11 +10,20 @@ export default async function handler(
     const userId = req.headers['x-user-id'] as string || 'anon';
 
     if (req.method === 'GET') {
-      const keys = await query(
-        'SELECT id, provider, label, key_mask as "keyMask", is_active as "isActive", created_at as "createdAt" FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC',
-        [userId]
-      );
-      return res.status(200).json(keys);
+      try {
+        const keys = await query(
+          'SELECT id, provider, label, key_mask as "keyMask", is_active as "isActive", created_at as "createdAt" FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC',
+          [userId]
+        );
+        return res.status(200).json(keys || []);
+      } catch (error: any) {
+        console.error('GET keys error:', error);
+        // If table doesn't exist, return empty array
+        if (error.message.includes('does not exist')) {
+          return res.status(200).json([]);
+        }
+        throw error;
+      }
     }
 
     if (req.method === 'POST') {
@@ -39,6 +48,6 @@ export default async function handler(
     res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
     console.error('Keys API error:', error);
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message, code: error.code });
   }
 }
